@@ -587,9 +587,19 @@ class ModBot {
 
     try {
       const rest = new REST({ version: '10' }).setToken(this.client.token);
-      await rest.put(Routes.applicationCommands(this.client.user.id), { body: commands });
-      console.log(`✅ Registered ${commands.length} slash commands`);
-      logger.botEvent({ event: 'slash_commands_registered', details: `Registered ${commands.length} slash commands globally` });
+
+      // Register per-guild (instant, no rate limits) instead of globally
+      const guilds = this.client.guilds.cache;
+      for (const [guildId, guild] of guilds) {
+        try {
+          await rest.put(Routes.applicationGuildCommands(this.client.user.id, guildId), { body: commands });
+          console.log(`✅ Registered ${commands.length} slash commands in ${guild.name}`);
+        } catch (guildErr) {
+          console.error(`⚠️ Failed to register commands in ${guild.name}: ${guildErr.message}`);
+        }
+      }
+
+      logger.botEvent({ event: 'slash_commands_registered', details: `Registered ${commands.length} slash commands in ${guilds.size} guild(s)` });
     } catch (error) {
       logger.error({ error: error.message, context: 'Slash command registration failed', stack: error.stack });
     }

@@ -195,7 +195,12 @@ app.delete('/api/logs', requireAuth, (req, res) => {
 
 // ─── Summaries API ──────────────────────────────────────────
 app.get('/api/summaries', requireAuth, (req, res) => {
-  res.json(modBot.getSummaries());
+  try {
+    const summaries = modBot.getSummaries() || [];
+    res.json(summaries);
+  } catch (err) {
+    res.json([]);
+  }
 });
 
 // ─── Root Redirect ──────────────────────────────────────────
