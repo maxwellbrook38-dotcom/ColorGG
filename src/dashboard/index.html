@@ -65,7 +65,7 @@
       background-size: 28px 28px;
       top: -100px;
       right: -100px;
-      opacity: 0.06;
+      opacity: 0.025;
       transform: rotate(15deg);
     }
 
@@ -78,7 +78,7 @@
       background-size: 24px 24px;
       bottom: -50px;
       left: -50px;
-      opacity: 0.05;
+      opacity: 0.02;
       transform: rotate(-10deg);
     }
 
@@ -91,11 +91,11 @@
     .memphis-shape.circle {
       width: 220px;
       height: 220px;
-      border: 3px solid var(--pink);
+      border: 2px solid var(--pink);
       border-radius: 50%;
       bottom: 40px;
       right: 60px;
-      opacity: 0.1;
+      opacity: 0.035;
     }
 
     .memphis-shape.triangle {
@@ -106,7 +106,7 @@
       border-bottom: 120px solid var(--orange);
       top: 100px;
       left: 40px;
-      opacity: 0.09;
+      opacity: 0.03;
       transform: rotate(20deg);
     }
 
@@ -115,7 +115,7 @@
       height: 40px;
       top: 200px;
       right: 200px;
-      opacity: 0.08;
+      opacity: 0.03;
     }
 
     .memphis-shape.cross::before,
@@ -144,7 +144,7 @@
       left: 250px;
       width: 120px;
       height: 20px;
-      opacity: 0.07;
+      opacity: 0.025;
       background:
         linear-gradient(135deg, var(--accent) 25%, transparent 25%) -10px 0,
         linear-gradient(225deg, var(--accent) 25%, transparent 25%) -10px 0,
@@ -156,40 +156,40 @@
     .memphis-shape.square {
       width: 55px;
       height: 55px;
-      border: 3px solid var(--orange);
+      border: 2px solid var(--orange);
       top: 350px;
       right: 120px;
-      opacity: 0.09;
+      opacity: 0.03;
       transform: rotate(35deg);
     }
 
     .memphis-shape.line1 {
       width: 140px;
-      height: 3px;
+      height: 2px;
       background: var(--accent);
       top: 80px;
       right: 300px;
-      opacity: 0.1;
+      opacity: 0.035;
       transform: rotate(-25deg);
     }
 
     .memphis-shape.line2 {
       width: 90px;
-      height: 3px;
+      height: 2px;
       background: var(--pink);
       bottom: 150px;
       left: 180px;
-      opacity: 0.1;
+      opacity: 0.035;
       transform: rotate(50deg);
     }
 
     .memphis-shape.diamond {
       width: 40px;
       height: 40px;
-      border: 3px solid var(--cyan);
+      border: 2px solid var(--cyan);
       top: 500px;
       left: 100px;
-      opacity: 0.08;
+      opacity: 0.03;
       transform: rotate(45deg);
     }
 
@@ -845,6 +845,10 @@
           <div class="nav-item" data-page="logs">
             <span class="icon">📋</span> Mod Logs
           </div>
+          <div class="nav-item" data-page="summary">
+            <span class="icon">📝</span> AI Summaries
+            <span class="badge" id="summary-badge" style="display:none;">0</span>
+          </div>
 
           <div class="sidebar-section">System</div>
           <div class="nav-item" data-page="settings">
@@ -987,6 +991,24 @@
                   <h3>No logs yet</h3>
                   <p>Logs will appear here when the bot starts moderating</p>
                 </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ SUMMARY PAGE ═══ -->
+          <div class="page" id="page-summary">
+            <h1 class="page-title">AI Summaries</h1>
+            <p class="page-subtitle">AI-generated summaries of Discord chat activity</p>
+
+            <div class="filter-bar">
+              <button class="btn btn-sm" onclick="loadSummaries()">🔄 Refresh</button>
+            </div>
+
+            <div id="summaries-container">
+              <div class="empty-state">
+                <div class="icon">📝</div>
+                <h3>No summaries yet</h3>
+                <p>Use <code>/summary</code> in Discord to generate AI chat summaries</p>
               </div>
             </div>
           </div>

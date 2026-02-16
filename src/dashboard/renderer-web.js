@@ -26,6 +26,9 @@ const api = {
   getStats: () => _get('/api/stats'),
   clearLogs: () => _delete('/api/logs'),
 
+  // Summaries
+  getSummaries: () => _get('/api/summaries'),
+
   // Event listeners (SSE)
   _statusCallbacks: [],
   _logCallbacks: [],
@@ -108,7 +111,7 @@ function showLogin() {
 
 function hideLogin() {
   document.getElementById('login-overlay').classList.remove('active');
-  document.getElementById('app-container').style.display = 'flex';
+  document.getElementById('app-container').style.display = 'block';
   connectSSE();
 }
 
@@ -180,6 +183,7 @@ function switchPage(page) {
   if (page === 'rules') loadRules();
   if (page === 'logs') refreshLogs();
   if (page === 'settings') loadSettings();
+  if (page === 'summary') loadSummaries();
   if (page === 'activity') {
     activityCount = 0;
     updateActivityBadge();
@@ -618,6 +622,59 @@ async function resetAllSettings() {
   await api.resetConfig();
   toast('All settings reset to defaults', 'info');
   loadSettings();
+}
+
+// ─── Summaries Page ─────────────────────────────────────────
+async function loadSummaries() {
+  const container = document.getElementById('summaries-container');
+  try {
+    const summaries = await api.getSummaries();
+    if (!summaries || summaries.length === 0) {
+      container.innerHTML = `
+        <div class="empty-state">
+          <div class="icon">📝</div>
+          <h3>No summaries yet</h3>
+          <p>Use <code>/summary</code> in Discord to generate AI chat summaries</p>
+        </div>
+      `;
+      return;
+    }
+
+    const badge = document.getElementById('summary-badge');
+    if (badge) {
+      badge.textContent = summaries.length;
+      badge.style.display = summaries.length > 0 ? 'inline-block' : 'none';
+    }
+
+    container.innerHTML = summaries.slice().reverse().map(s => {
+      const time = s.timestamp ? new Date(s.timestamp).toLocaleString() : '—';
+      const summaryHtml = escapeHtml(s.summary || '').replace(/\n/g, '<br>');
+      return `
+        <div class="card" style="margin-bottom: 12px;">
+          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+            <div>
+              <strong style="color: var(--pink);">#${escapeHtml(s.channelName || 'unknown')}</strong>
+              <span style="color: var(--text3); margin-left: 8px;">${escapeHtml(s.guildName || '')}</span>
+            </div>
+            <div style="color: var(--text3); font-size: 12px; font-family: var(--monospace);">
+              ${time} · ${s.messageCount || 0} msgs
+            </div>
+          </div>
+          <div style="color: var(--text2); line-height: 1.6; font-size: 13px;">
+            ${summaryHtml}
+          </div>
+        </div>
+      `;
+    }).join('');
+  } catch (err) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="icon">⚠️</div>
+        <h3>Failed to load summaries</h3>
+        <p>${escapeHtml(err.message)}</p>
+      </div>
+    `;
+  }
 }
 
 // ─── Utilities ──────────────────────────────────────────────

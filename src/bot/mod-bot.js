@@ -1,4 +1,4 @@
-const { Client, GatewayIntentBits, Partials, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle } = require('discord.js');
+const { Client, GatewayIntentBits, Partials, PermissionFlagsBits, EmbedBuilder, ActionRowBuilder, ButtonBuilder, ButtonStyle, SlashCommandBuilder, REST, Routes } = require('discord.js');
 const aiEngine = require('./ai-engine');
 const ConfigManager = require('../config/config-manager');
 const logger = require('../utils/logger');
@@ -11,7 +11,9 @@ class ModBot {
     this.messageCount = 0;
     this.actionCount = 0;
     this.startTime = null;
-    this.pendingBans = new Map(); // Store pending bans so dashboard can see them
+    this.pendingBans = new Map();
+    this.summaries = [];      // Store chat summaries for dashboard
+    this.maxSummaries = 50;
   }
 
   async start(token) {
@@ -61,7 +63,7 @@ class ModBot {
   }
 
   _setupEventHandlers() {
-    this.client.once('ready', () => {
+    this.client.once('ready', async () => {
       console.log(`✅ ColorGG logged in as ${this.client.user.tag}`);
       logger.botEvent({
         event: 'ready',
@@ -73,6 +75,9 @@ class ModBot {
         status: 'online',
         activities: [{ name: '🛡️ Moderating | ColorGG', type: 3 }]
       });
+
+      // Register slash commands
+      await this._registerSlashCommands();
     });
 
     this.client.on('messageCreate', async (message) => {
@@ -531,9 +536,361 @@ class ModBot {
     }
   }
 
-  async _handleInteraction(interaction) {
-    if (!interaction.isButton()) return;
+  async _registerSlashCommands() {
+    const commands = [
+      new SlashCommandBuilder()
+        .setName('summary')
+        .setDescription('AI-powered summary of recent chat messages')
+        .addIntegerOption(opt => opt.setName('messages').setDescription('Number of messages to summarize (default 50)').setMinValue(10).setMaxValue(200))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
 
+      new SlashCommandBuilder()
+        .setName('purge')
+        .setDescription('AI-powered purge — scans and deletes rule-violating messages')
+        .addIntegerOption(opt => opt.setName('scan').setDescription('Number of messages to scan (default 50)').setMinValue(5).setMaxValue(100))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+      new SlashCommandBuilder()
+        .setName('status')
+        .setDescription('Show ColorGG bot status and stats')
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+      new SlashCommandBuilder()
+        .setName('warn')
+        .setDescription('Warn a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User to warn').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for warning').setRequired(true))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ManageMessages),
+
+      new SlashCommandBuilder()
+        .setName('timeout')
+        .setDescription('Timeout a user')
+        .addUserOption(opt => opt.setName('user').setDescription('User to timeout').setRequired(true))
+        .addIntegerOption(opt => opt.setName('duration').setDescription('Duration in minutes').setRequired(true).setMinValue(1).setMaxValue(10080))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for timeout'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.ModerateMembers),
+
+      new SlashCommandBuilder()
+        .setName('kick')
+        .setDescription('Kick a user from the server')
+        .addUserOption(opt => opt.setName('user').setDescription('User to kick').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for kick'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.KickMembers),
+
+      new SlashCommandBuilder()
+        .setName('ban')
+        .setDescription('Ban a user from the server')
+        .addUserOption(opt => opt.setName('user').setDescription('User to ban').setRequired(true))
+        .addStringOption(opt => opt.setName('reason').setDescription('Reason for ban'))
+        .setDefaultMemberPermissions(PermissionFlagsBits.BanMembers),
+    ].map(c => c.toJSON());
+
+    try {
+      const rest = new REST({ version: '10' }).setToken(this.client.token);
+      await rest.put(Routes.applicationCommands(this.client.user.id), { body: commands });
+      console.log(`✅ Registered ${commands.length} slash commands`);
+      logger.botEvent({ event: 'slash_commands_registered', details: `Registered ${commands.length} slash commands globally` });
+    } catch (error) {
+      logger.error({ error: error.message, context: 'Slash command registration failed', stack: error.stack });
+    }
+  }
+
+  async _handleInteraction(interaction) {
+    if (interaction.isButton()) {
+      return this._handleButton(interaction);
+    }
+    if (!interaction.isChatInputCommand()) return;
+
+    switch (interaction.commandName) {
+      case 'summary': return this._cmdSummary(interaction);
+      case 'purge': return this._cmdPurge(interaction);
+      case 'status': return this._cmdStatus(interaction);
+      case 'warn': return this._cmdWarn(interaction);
+      case 'timeout': return this._cmdTimeout(interaction);
+      case 'kick': return this._cmdKick(interaction);
+      case 'ban': return this._cmdBan(interaction);
+    }
+  }
+
+  // ─── /summary ──────────────────────────────────────────────
+  async _cmdSummary(interaction) {
+    const count = interaction.options.getInteger('messages') || 50;
+    await interaction.deferReply();
+
+    try {
+      const messages = await interaction.channel.messages.fetch({ limit: count });
+      const sorted = [...messages.values()].reverse().filter(m => !m.author.bot && m.content);
+
+      if (sorted.length < 3) {
+        return interaction.editReply('Not enough messages to summarize.');
+      }
+
+      const result = await aiEngine.summarizeChat(sorted, interaction.channel.name, interaction.guild.name);
+
+      // Store for dashboard
+      this.summaries.unshift(result);
+      if (this.summaries.length > this.maxSummaries) this.summaries.pop();
+
+      const embed = new EmbedBuilder()
+        .setTitle(`📝 Chat Summary — #${interaction.channel.name}`)
+        .setColor(0x7C6CF7)
+        .setDescription(result.summary.substring(0, 4000))
+        .addFields(
+          { name: '📊 Messages Analyzed', value: `${sorted.length}`, inline: true },
+          { name: '📍 Channel', value: `#${interaction.channel.name}`, inline: true }
+        )
+        .setTimestamp()
+        .setFooter({ text: 'ColorGG AI Summary' });
+
+      await interaction.editReply({ embeds: [embed] });
+
+      logger.botEvent({ event: 'chat_summary', details: `Summarized ${sorted.length} messages in #${interaction.channel.name}` });
+      this._emitStatus('summary');
+    } catch (error) {
+      logger.error({ error: error.message, context: 'Summary command failed' });
+      await interaction.editReply(`Summary failed: ${error.message}`);
+    }
+  }
+
+  // ─── /purge ────────────────────────────────────────────────
+  async _cmdPurge(interaction) {
+    const scanCount = interaction.options.getInteger('scan') || 50;
+    await interaction.deferReply({ ephemeral: true });
+
+    try {
+      const fetched = await interaction.channel.messages.fetch({ limit: scanCount });
+      const messages = [...fetched.values()].reverse().filter(m => !m.author.bot && m.content);
+
+      if (messages.length === 0) {
+        return interaction.editReply('No user messages found to scan.');
+      }
+
+      await interaction.editReply(`🔍 Scanning ${messages.length} messages with AI...`);
+
+      const result = await aiEngine.analyzeForPurge(messages, interaction.channel.name);
+
+      if (!result.flaggedIndexes || result.flaggedIndexes.length === 0) {
+        return interaction.editReply(`✅ Scanned ${messages.length} messages — all clean! No violations found.`);
+      }
+
+      // Delete flagged messages
+      const toDelete = result.flaggedIndexes
+        .map(i => messages[i])
+        .filter(m => m && m.deletable);
+
+      let deleted = 0;
+      for (const msg of toDelete) {
+        try {
+          await msg.delete();
+          deleted++;
+        } catch (e) {}
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('🧹 AI Purge Complete')
+        .setColor(0xFF6B9D)
+        .setDescription(result.summary || 'Purge completed.')
+        .addFields(
+          { name: '🔍 Scanned', value: `${messages.length}`, inline: true },
+          { name: '🚩 Flagged', value: `${result.totalFlagged || result.flaggedIndexes.length}`, inline: true },
+          { name: '🗑️ Deleted', value: `${deleted}`, inline: true }
+        )
+        .setTimestamp()
+        .setFooter({ text: 'ColorGG AI Purge' });
+
+      // Show reasons
+      if (result.reasons) {
+        const reasonText = Object.entries(result.reasons)
+          .slice(0, 10)
+          .map(([idx, reason]) => {
+            const msg = messages[parseInt(idx)];
+            return `**${msg?.author?.tag || 'Unknown'}**: ${reason}`;
+          })
+          .join('\n');
+        if (reasonText) embed.addFields({ name: '📋 Reasons', value: reasonText.substring(0, 1024) });
+      }
+
+      await interaction.editReply({ content: null, embeds: [embed] });
+
+      logger.modAction({
+        action: 'ai_purge',
+        channelId: interaction.channel.id,
+        channelName: interaction.channel.name,
+        guildId: interaction.guild.id,
+        guildName: interaction.guild.name,
+        reason: `AI purge: scanned ${messages.length}, flagged ${result.flaggedIndexes.length}, deleted ${deleted}`,
+        severity: 'medium'
+      });
+      this._emitStatus('action');
+    } catch (error) {
+      logger.error({ error: error.message, context: 'Purge command failed' });
+      await interaction.editReply(`Purge failed: ${error.message}`);
+    }
+  }
+
+  // ─── /status ───────────────────────────────────────────────
+  async _cmdStatus(interaction) {
+    const status = this.getStatus();
+    const uptime = status.uptime ? `${Math.floor(status.uptime / 3600000)}h ${Math.floor((status.uptime % 3600000) / 60000)}m` : 'N/A';
+
+    const embed = new EmbedBuilder()
+      .setTitle('🎨 ColorGG Status')
+      .setColor(0x7C6CF7)
+      .addFields(
+        { name: '🤖 Bot', value: status.username || 'Unknown', inline: true },
+        { name: '⏱️ Uptime', value: uptime, inline: true },
+        { name: '🏠 Servers', value: `${status.guilds}`, inline: true },
+        { name: '👥 Members', value: `${status.members}`, inline: true },
+        { name: '💬 Messages', value: `${status.messageCount}`, inline: true },
+        { name: '⚡ Actions', value: `${status.actionCount}`, inline: true }
+      )
+      .setTimestamp()
+      .setFooter({ text: 'ColorGG AI Moderation' });
+
+    await interaction.reply({ embeds: [embed] });
+  }
+
+  // ─── /warn ─────────────────────────────────────────────────
+  async _cmdWarn(interaction) {
+    const user = interaction.options.getUser('user');
+    const reason = interaction.options.getString('reason');
+
+    aiEngine.addWarning(user.id);
+    const count = aiEngine.getWarningCount(user.id);
+
+    try {
+      const dm = await user.createDM();
+      await dm.send(`⚠️ **Warning from ${interaction.guild.name}** — ${reason} (Warning #${count})`);
+    } catch (e) {}
+
+    const embed = new EmbedBuilder()
+      .setTitle('⚠️ User Warned')
+      .setColor(0xFFB84D)
+      .addFields(
+        { name: 'User', value: `${user.tag}`, inline: true },
+        { name: 'Warning #', value: `${count}`, inline: true },
+        { name: 'Reason', value: reason }
+      )
+      .setTimestamp();
+
+    await interaction.reply({ embeds: [embed] });
+
+    logger.modAction({
+      action: 'warn', userId: user.id, username: user.tag,
+      guildId: interaction.guild.id, guildName: interaction.guild.name,
+      reason: `[Manual] ${reason}`, severity: 'low'
+    });
+    this.actionCount++;
+    this._emitStatus('action');
+  }
+
+  // ─── /timeout ──────────────────────────────────────────────
+  async _cmdTimeout(interaction) {
+    const user = interaction.options.getUser('user');
+    const duration = interaction.options.getInteger('duration');
+    const reason = interaction.options.getString('reason') || 'No reason provided';
+
+    try {
+      const member = await interaction.guild.members.fetch(user.id);
+      await member.timeout(duration * 60 * 1000, `[ColorGG] ${reason}`);
+
+      const embed = new EmbedBuilder()
+        .setTitle('🔇 User Timed Out')
+        .setColor(0xFF6B9D)
+        .addFields(
+          { name: 'User', value: `${user.tag}`, inline: true },
+          { name: 'Duration', value: `${duration} min`, inline: true },
+          { name: 'Reason', value: reason }
+        )
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed] });
+
+      logger.modAction({
+        action: 'timeout', userId: user.id, username: user.tag,
+        guildId: interaction.guild.id, guildName: interaction.guild.name,
+        reason: `[Manual] ${reason}`, severity: 'medium', duration: duration * 60
+      });
+      this.actionCount++;
+      this._emitStatus('action');
+    } catch (error) {
+      await interaction.reply({ content: `Failed: ${error.message}`, ephemeral: true });
+    }
+  }
+
+  // ─── /kick ─────────────────────────────────────────────────
+  async _cmdKick(interaction) {
+    const user = interaction.options.getUser('user');
+    const reason = interaction.options.getString('reason') || 'No reason provided';
+
+    try {
+      const member = await interaction.guild.members.fetch(user.id);
+      await member.kick(`[ColorGG] ${reason}`);
+
+      const embed = new EmbedBuilder()
+        .setTitle('👢 User Kicked')
+        .setColor(0xFF4757)
+        .addFields(
+          { name: 'User', value: `${user.tag}`, inline: true },
+          { name: 'Reason', value: reason }
+        )
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed] });
+
+      logger.modAction({
+        action: 'kick', userId: user.id, username: user.tag,
+        guildId: interaction.guild.id, guildName: interaction.guild.name,
+        reason: `[Manual] ${reason}`, severity: 'high'
+      });
+      this.actionCount++;
+      this._emitStatus('action');
+    } catch (error) {
+      await interaction.reply({ content: `Failed: ${error.message}`, ephemeral: true });
+    }
+  }
+
+  // ─── /ban ──────────────────────────────────────────────────
+  async _cmdBan(interaction) {
+    const user = interaction.options.getUser('user');
+    const reason = interaction.options.getString('reason') || 'No reason provided';
+
+    try {
+      const member = await interaction.guild.members.fetch(user.id).catch(() => null);
+      if (member && member.bannable) {
+        await member.ban({ reason: `[ColorGG] ${reason}` });
+      } else {
+        await interaction.guild.bans.create(user.id, { reason: `[ColorGG] ${reason}` });
+      }
+
+      const embed = new EmbedBuilder()
+        .setTitle('🔨 User Banned')
+        .setColor(0xFF0000)
+        .addFields(
+          { name: 'User', value: `${user.tag}`, inline: true },
+          { name: 'Reason', value: reason }
+        )
+        .setTimestamp();
+
+      await interaction.reply({ embeds: [embed] });
+
+      logger.modAction({
+        action: 'ban', userId: user.id, username: user.tag,
+        guildId: interaction.guild.id, guildName: interaction.guild.name,
+        reason: `[Manual] ${reason}`, severity: 'critical'
+      });
+      this.actionCount++;
+      this._emitStatus('action');
+    } catch (error) {
+      await interaction.reply({ content: `Failed: ${error.message}`, ephemeral: true });
+    }
+  }
+
+  getSummaries() {
+    return this.summaries;
+  }
+
+  async _handleButton(interaction) {
     const [action, type, userId, guildId] = interaction.customId.split('_');
     if (action !== 'ban') return;
 
@@ -558,7 +915,6 @@ class ModBot {
             severity: 'critical'
           });
         } else {
-          // User was kicked and left — try banning by ID
           try {
             await guild.bans.create(userId, { reason: '[ColorGG] Ban approved by admin (user already left)' });
             await interaction.update({

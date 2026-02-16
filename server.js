@@ -193,6 +193,11 @@ app.delete('/api/logs', requireAuth, (req, res) => {
   res.json({ success: true });
 });
 
+// ─── Summaries API ──────────────────────────────────────────
+app.get('/api/summaries', requireAuth, (req, res) => {
+  res.json(modBot.getSummaries());
+});
+
 // ─── Root Redirect ──────────────────────────────────────────
 app.get('/', (req, res) => res.redirect('/dashboard/index.html'));
 
