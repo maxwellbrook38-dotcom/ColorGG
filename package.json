@@ -1,0 +1,32 @@
+{
+  "name": "colorgg",
+  "version": "2.0.0",
+  "description": "ColorGG — Advanced AI Discord Moderation Bot with Web Dashboard",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node server.js"
+  },
+  "keywords": [
+    "discord",
+    "moderation",
+    "ai",
+    "dashboard"
+  ],
+  "author": "ColorGG",
+  "license": "ISC",
+  "type": "commonjs",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "axios": "^1.13.5",
+    "bcryptjs": "^2.4.3",
+    "cookie-parser": "^1.4.6",
+    "discord.js": "^14.25.1",
+    "express": "^4.21.0",
+    "express-rate-limit": "^7.4.0",
+    "helmet": "^7.1.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

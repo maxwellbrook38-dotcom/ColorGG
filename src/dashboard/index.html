@@ -1,0 +1,1115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ColorGG — AI Moderation</title>
+  <style>
+    /* ─── Reset & Root Variables ─────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #08080C;
+      --surface: #101016;
+      --surface2: #18181F;
+      --surface3: #222230;
+      --border: #2E2E42;
+      --border-hard: #3A3A52;
+      --text: #F0F0F8;
+      --text2: #A0A0BA;
+      --text3: #5A5A72;
+      --accent: #7C6CF7;
+      --accent2: #B0A5FE;
+      --pink: #FF6B9D;
+      --orange: #FFB84D;
+      --red: #FF4757;
+      --green: #00D2A0;
+      --cyan: #00D4CF;
+      --yellow: #FFE066;
+      --radius: 2px;
+      --radius-lg: 3px;
+      --shadow: 0 2px 12px rgba(0,0,0,0.6);
+      --shadow-lg: 0 4px 24px rgba(0,0,0,0.7);
+      --mono: 'Cascadia Code', 'JetBrains Mono', 'Consolas', monospace;
+      --sans: 'Inter', 'Segoe UI', -apple-system, sans-serif;
+    }
+
+    body {
+      font-family: var(--sans);
+      background: var(--bg);
+      color: var(--text);
+      overflow: hidden;
+      height: 100vh;
+      -webkit-font-smoothing: antialiased;
+      letter-spacing: 0.01em;
+    }
+
+    /* ─── Neo-Memphis Decorations ─────────────────────── */
+    .memphis-dots {
+      position: fixed;
+      width: 100%;
+      height: 100%;
+      top: 0;
+      left: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .memphis-dots::before {
+      content: '';
+      position: absolute;
+      width: 500px;
+      height: 500px;
+      background: radial-gradient(circle, var(--accent) 1.5px, transparent 1.5px);
+      background-size: 28px 28px;
+      top: -100px;
+      right: -100px;
+      opacity: 0.06;
+      transform: rotate(15deg);
+    }
+
+    .memphis-dots::after {
+      content: '';
+      position: absolute;
+      width: 400px;
+      height: 400px;
+      background: radial-gradient(circle, var(--pink) 1.5px, transparent 1.5px);
+      background-size: 24px 24px;
+      bottom: -50px;
+      left: -50px;
+      opacity: 0.05;
+      transform: rotate(-10deg);
+    }
+
+    .memphis-shape {
+      position: fixed;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    .memphis-shape.circle {
+      width: 220px;
+      height: 220px;
+      border: 3px solid var(--pink);
+      border-radius: 50%;
+      bottom: 40px;
+      right: 60px;
+      opacity: 0.1;
+    }
+
+    .memphis-shape.triangle {
+      width: 0;
+      height: 0;
+      border-left: 70px solid transparent;
+      border-right: 70px solid transparent;
+      border-bottom: 120px solid var(--orange);
+      top: 100px;
+      left: 40px;
+      opacity: 0.09;
+      transform: rotate(20deg);
+    }
+
+    .memphis-shape.cross {
+      width: 40px;
+      height: 40px;
+      top: 200px;
+      right: 200px;
+      opacity: 0.08;
+    }
+
+    .memphis-shape.cross::before,
+    .memphis-shape.cross::after {
+      content: '';
+      position: absolute;
+      background: var(--cyan);
+    }
+
+    .memphis-shape.cross::before {
+      width: 100%;
+      height: 6px;
+      top: 50%;
+      transform: translateY(-50%);
+    }
+
+    .memphis-shape.cross::after {
+      width: 6px;
+      height: 100%;
+      left: 50%;
+      transform: translateX(-50%);
+    }
+
+    .memphis-shape.zigzag {
+      bottom: 200px;
+      left: 250px;
+      width: 120px;
+      height: 20px;
+      opacity: 0.07;
+      background:
+        linear-gradient(135deg, var(--accent) 25%, transparent 25%) -10px 0,
+        linear-gradient(225deg, var(--accent) 25%, transparent 25%) -10px 0,
+        linear-gradient(315deg, var(--accent) 25%, transparent 25%),
+        linear-gradient(45deg, var(--accent) 25%, transparent 25%);
+      background-size: 20px 20px;
+    }
+
+    .memphis-shape.square {
+      width: 55px;
+      height: 55px;
+      border: 3px solid var(--orange);
+      top: 350px;
+      right: 120px;
+      opacity: 0.09;
+      transform: rotate(35deg);
+    }
+
+    .memphis-shape.line1 {
+      width: 140px;
+      height: 3px;
+      background: var(--accent);
+      top: 80px;
+      right: 300px;
+      opacity: 0.1;
+      transform: rotate(-25deg);
+    }
+
+    .memphis-shape.line2 {
+      width: 90px;
+      height: 3px;
+      background: var(--pink);
+      bottom: 150px;
+      left: 180px;
+      opacity: 0.1;
+      transform: rotate(50deg);
+    }
+
+    .memphis-shape.diamond {
+      width: 40px;
+      height: 40px;
+      border: 3px solid var(--cyan);
+      top: 500px;
+      left: 100px;
+      opacity: 0.08;
+      transform: rotate(45deg);
+    }
+
+    /* ─── Login Overlay ───────────────────────────── */
+    .login-overlay {
+      display: none;
+      position: fixed;
+      inset: 0;
+      z-index: 9999;
+      background: var(--bg);
+      align-items: center;
+      justify-content: center;
+    }
+
+    .login-overlay.active {
+      display: flex;
+    }
+
+    .login-box {
+      width: 380px;
+      max-width: 90vw;
+      background: var(--surface);
+      border: 2px solid var(--border-hard);
+      border-radius: var(--radius);
+      padding: 40px 32px;
+      position: relative;
+      z-index: 1;
+      box-shadow: var(--shadow-lg);
+    }
+
+    .login-logo {
+      width: 48px;
+      height: 48px;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      border-radius: 2px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 22px;
+      font-weight: 900;
+      color: white;
+      margin: 0 auto 20px;
+      box-shadow: 0 0 20px rgba(124, 108, 247, 0.4);
+    }
+
+    .login-title {
+      text-align: center;
+      font-size: 24px;
+      font-weight: 900;
+      margin-bottom: 4px;
+      background: linear-gradient(135deg, var(--text), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .login-subtitle {
+      text-align: center;
+      font-size: 11px;
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      margin-bottom: 28px;
+      font-family: var(--mono);
+    }
+
+    .login-input {
+      width: 100%;
+      padding: 14px 16px;
+      background: var(--bg);
+      border: 2px solid var(--border);
+      border-radius: var(--radius);
+      color: var(--text);
+      font-size: 14px;
+      font-family: var(--mono);
+      outline: none;
+      transition: border-color 0.15s;
+      margin-bottom: 16px;
+    }
+
+    .login-input:focus {
+      border-color: var(--accent);
+      box-shadow: 0 0 0 1px var(--accent);
+    }
+
+    .login-input::placeholder {
+      color: var(--text3);
+    }
+
+    .login-btn {
+      width: 100%;
+      padding: 14px;
+      background: var(--accent);
+      border: none;
+      border-radius: var(--radius);
+      color: white;
+      font-size: 13px;
+      font-weight: 700;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 2px;
+      cursor: pointer;
+      transition: background 0.15s;
+    }
+
+    .login-btn:hover { background: var(--accent2); }
+    .login-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .login-error {
+      color: var(--red);
+      font-size: 12px;
+      font-family: var(--mono);
+      text-align: center;
+      margin-top: 12px;
+      min-height: 18px;
+    }
+
+    .login-footer {
+      text-align: center;
+      font-size: 10px;
+      color: var(--text3);
+      margin-top: 20px;
+      font-family: var(--mono);
+      letter-spacing: 1px;
+    }
+
+    /* ─── Top Bar ─────────────────────────────────── */
+    .topbar {
+      height: 44px;
+      background: var(--surface);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 16px;
+      border-bottom: 2px solid var(--border-hard);
+      position: relative;
+      z-index: 100;
+    }
+
+    .topbar-left {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .topbar-logo {
+      width: 24px;
+      height: 24px;
+      background: linear-gradient(135deg, var(--accent), var(--pink));
+      border-radius: 1px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 12px;
+      font-weight: 900;
+      color: white;
+      box-shadow: 0 0 8px rgba(124, 108, 247, 0.4);
+    }
+
+    .topbar-title {
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--text2);
+    }
+
+    .topbar-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    .topbar-status {
+      font-size: 10px;
+      font-family: var(--mono);
+      color: var(--text3);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
+
+    .btn-logout {
+      padding: 6px 14px;
+      border: 1px solid var(--border);
+      background: transparent;
+      color: var(--text3);
+      border-radius: var(--radius);
+      font-size: 11px;
+      font-weight: 600;
+      font-family: var(--mono);
+      text-transform: uppercase;
+      letter-spacing: 1px;
+      cursor: pointer;
+      transition: all 0.1s;
+    }
+
+    .btn-logout:hover {
+      border-color: var(--red);
+      color: var(--red);
+      background: rgba(255, 71, 87, 0.08);
+    }
+
+    /* ─── App Layout ──────────────────────────────── */
+    .app {
+      height: calc(100vh - 44px);
+      position: relative;
+      z-index: 1;
+    }
+
+    .app-inner {
+      display: flex;
+      height: 100%;
+    }
+
+    /* ─── Sidebar ─────────────────────────────────── */
+    .sidebar {
+      width: 220px;
+      min-width: 220px;
+      background: var(--surface);
+      border-right: 2px solid var(--border-hard);
+      display: flex;
+      flex-direction: column;
+      padding: 16px 0;
+    }
+
+    .sidebar-section {
+      padding: 6px 16px;
+      font-size: 10px;
+      font-weight: 700;
+      letter-spacing: 2px;
+      text-transform: uppercase;
+      color: var(--text3);
+      margin-top: 12px;
+    }
+
+    .sidebar-section:first-child { margin-top: 0; }
+
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 10px 20px;
+      cursor: pointer;
+      color: var(--text2);
+      font-size: 13px;
+      font-weight: 500;
+      transition: all 0.2s;
+      border-left: 3px solid transparent;
+      position: relative;
+    }
+
+    .nav-item:hover {
+      background: var(--surface2);
+      color: var(--text);
+    }
+
+    .nav-item.active {
+      background: rgba(124, 108, 247, 0.12);
+      color: var(--accent2);
+      border-left-color: var(--accent);
+      border-left-width: 3px;
+    }
+
+    .nav-item .icon {
+      font-size: 17px;
+      width: 22px;
+      text-align: center;
+    }
+
+    .nav-item .badge {
+      position: absolute;
+      right: 16px;
+      background: var(--red);
+      color: white;
+      font-size: 10px;
+      font-weight: 700;
+      padding: 1px 7px;
+      border-radius: 1px;
+      min-width: 18px;
+      text-align: center;
+      box-shadow: 0 0 6px rgba(255, 71, 87, 0.4);
+    }
+
+    .sidebar-bottom {
+      margin-top: auto;
+      padding: 16px;
+      border-top: 2px solid var(--border-hard);
+    }
+
+    .bot-status-indicator {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 10px 14px;
+      border-radius: var(--radius);
+      background: var(--surface2);
+      margin-bottom: 10px;
+      border: 1px solid var(--border);
+    }
+
+    .status-dot {
+      width: 10px;
+      height: 10px;
+      border-radius: 50%;
+      background: var(--text3);
+      flex-shrink: 0;
+    }
+
+    .status-dot.online { background: var(--green); box-shadow: 0 0 10px var(--green), 0 0 3px var(--green); }
+    .status-dot.offline { background: var(--text3); }
+    .status-dot.starting { background: var(--orange); animation: pulse 1s infinite; }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .status-text {
+      font-size: 12px;
+      color: var(--text2);
+    }
+
+    .status-text strong {
+      display: block;
+      font-size: 13px;
+      color: var(--text);
+    }
+
+    .btn-power {
+      width: 100%;
+      padding: 10px;
+      border: 2px solid var(--accent);
+      background: transparent;
+      color: var(--accent2);
+      border-radius: var(--radius);
+      font-size: 13px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: all 0.15s;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-family: var(--mono);
+    }
+
+    .btn-power:hover {
+      background: var(--accent);
+      color: white;
+    }
+
+    .btn-power.running {
+      border-color: var(--red);
+      color: var(--red);
+    }
+
+    .btn-power.running:hover {
+      background: var(--red);
+      color: white;
+    }
+
+    /* ─── Main Content ────────────────────────────── */
+    .main {
+      flex: 1;
+      overflow-y: auto;
+      padding: 24px 32px;
+      position: relative;
+    }
+
+    .main::-webkit-scrollbar { width: 6px; }
+    .main::-webkit-scrollbar-track { background: transparent; }
+    .main::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+    .main::-webkit-scrollbar-thumb:hover { background: var(--text3); }
+
+    .page { display: none; }
+    .page.active { display: block; animation: fadeIn 0.25s ease; }
+
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(8px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .page-title {
+      font-size: 30px;
+      font-weight: 900;
+      margin-bottom: 4px;
+      background: linear-gradient(135deg, var(--text), var(--accent2));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      letter-spacing: -0.5px;
+      font-family: var(--sans);
+    }
+
+    .page-subtitle {
+      font-size: 12px;
+      color: var(--text3);
+      margin-bottom: 28px;
+      text-transform: uppercase;
+      letter-spacing: 1.5px;
+      font-family: var(--mono);
+    }
+
+    /* ─── Stats Grid ──────────────────────────────── */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 16px;
+      margin-bottom: 28px;
+    }
+
+    .stat-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      position: relative;
+      overflow: hidden;
+      transition: transform 0.15s, border-color 0.15s, box-shadow 0.15s;
+    }
+
+    .stat-card:hover {
+      transform: translateY(-2px);
+      border-color: var(--border-hard);
+      box-shadow: var(--shadow);
+    }
+
+    .stat-card::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      height: 2px;
+    }
+
+    .stat-card.purple::before { background: linear-gradient(90deg, var(--accent), var(--accent2)); }
+    .stat-card.pink::before { background: linear-gradient(90deg, var(--pink), #e84393); }
+    .stat-card.green::before { background: linear-gradient(90deg, var(--green), #55efc4); }
+    .stat-card.orange::before { background: linear-gradient(90deg, var(--orange), #e17055); }
+    .stat-card.red::before { background: linear-gradient(90deg, var(--red), #d63031); }
+    .stat-card.cyan::before { background: linear-gradient(90deg, var(--cyan), #74b9ff); }
+
+    .stat-icon { font-size: 22px; margin-bottom: 10px; }
+    .stat-value { font-size: 34px; font-weight: 800; line-height: 1; margin-bottom: 4px; font-family: var(--mono); letter-spacing: -1px; }
+    .stat-label { font-size: 12px; color: var(--text3); text-transform: uppercase; letter-spacing: 1px; font-weight: 600; }
+
+    /* ─── Cards & Panels ──────────────────────────── */
+    .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; margin-bottom: 20px; }
+    .card-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+    .card-title { font-size: 16px; font-weight: 700; display: flex; align-items: center; gap: 8px; }
+    .card-title .icon { font-size: 20px; }
+
+    /* ─── Rules Grid ──────────────────────────────── */
+    .rules-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; }
+    .rule-card { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; transition: all 0.15s; position: relative; }
+    .rule-card:hover { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent), var(--shadow); }
+    .rule-card.disabled { opacity: 0.5; }
+    .rule-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+    .rule-name { font-size: 15px; font-weight: 700; }
+
+    .severity-badge { font-size: 10px; font-weight: 700; padding: 3px 10px; border-radius: 1px; text-transform: uppercase; letter-spacing: 1px; font-family: var(--mono); }
+    .severity-badge.low { background: rgba(0, 184, 148, 0.15); color: var(--green); }
+    .severity-badge.medium { background: rgba(253, 203, 110, 0.15); color: var(--orange); }
+    .severity-badge.high { background: rgba(253, 121, 168, 0.15); color: var(--pink); }
+    .severity-badge.critical { background: rgba(255, 107, 107, 0.15); color: var(--red); }
+
+    .rule-desc { font-size: 12px; color: var(--text3); margin-bottom: 14px; line-height: 1.5; }
+    .rule-meta { display: flex; gap: 16px; font-size: 11px; color: var(--text3); }
+    .rule-meta span { display: flex; align-items: center; gap: 4px; }
+    .rule-actions { display: flex; gap: 8px; margin-top: 14px; padding-top: 14px; border-top: 1px solid var(--border); }
+
+    /* ─── Toggle Switch ───────────────────────────── */
+    .toggle { position: relative; width: 42px; height: 22px; flex-shrink: 0; }
+    .toggle input { opacity: 0; width: 0; height: 0; }
+    .toggle-slider { position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0; background: var(--surface3); border-radius: 2px; transition: all 0.2s; border: 1px solid var(--border); }
+    .toggle-slider::before { content: ''; position: absolute; width: 16px; height: 16px; left: 2px; bottom: 2px; background: var(--text3); border-radius: 1px; transition: all 0.2s; }
+    .toggle input:checked + .toggle-slider { background: var(--accent); border-color: var(--accent); }
+    .toggle input:checked + .toggle-slider::before { transform: translateX(20px); background: white; }
+
+    /* ─── Buttons ─────────────────────────────────── */
+    .btn { padding: 8px 16px; border: 1px solid var(--border); background: var(--surface2); color: var(--text2); border-radius: var(--radius); font-size: 12px; font-weight: 600; cursor: pointer; transition: all 0.1s; display: inline-flex; align-items: center; gap: 6px; text-transform: uppercase; letter-spacing: 0.5px; font-family: var(--mono); }
+    .btn:hover { background: var(--surface3); color: var(--text); border-color: var(--text3); }
+    .btn-primary { background: var(--accent); border-color: var(--accent); color: white; }
+    .btn-primary:hover { background: var(--accent2); border-color: var(--accent2); }
+    .btn-danger { border-color: var(--red); color: var(--red); }
+    .btn-danger:hover { background: var(--red); color: white; }
+    .btn-sm { padding: 5px 10px; font-size: 11px; }
+
+    /* ─── Inputs ───────────────────────────────────── */
+    .input-group { margin-bottom: 16px; }
+    .input-label { display: block; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 1px; color: var(--text3); margin-bottom: 6px; }
+    .input, .textarea, .select { width: 100%; padding: 10px 14px; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); color: var(--text); font-size: 13px; font-family: var(--mono); transition: all 0.1s; outline: none; }
+    .input:focus, .textarea:focus, .select:focus { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+    .textarea { min-height: 80px; resize: vertical; font-size: 12px; }
+    .select { cursor: pointer; appearance: none; background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239898B0' viewBox='0 0 16 16'%3E%3Cpath d='M8 11L3 6h10z'/%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: right 12px center; padding-right: 32px; }
+    .select option { background: var(--surface); color: var(--text); }
+
+    /* ─── Log Table ───────────────────────────────── */
+    .log-container { max-height: 500px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius); background: var(--bg); }
+    .log-container::-webkit-scrollbar { width: 5px; }
+    .log-container::-webkit-scrollbar-thumb { background: var(--border); border-radius: 3px; }
+
+    .log-entry { display: grid; grid-template-columns: 140px 100px 80px 1fr; padding: 10px 14px; font-size: 12px; border-bottom: 1px solid var(--border); transition: background 0.05s; align-items: center; font-family: var(--mono); }
+    .log-entry:hover { background: var(--surface2); }
+    .log-entry:last-child { border-bottom: none; }
+    .log-time { color: var(--text3); font-family: var(--mono); font-size: 11px; }
+    .log-type { font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .log-type.warn { color: var(--orange); }
+    .log-type.timeout { color: var(--pink); }
+    .log-type.kick { color: var(--red); }
+    .log-type.request_ban, .log-type.ban { color: var(--red); }
+    .log-type.ai_analysis { color: var(--cyan); }
+    .log-type.bot_event { color: var(--accent2); }
+    .log-type.error { color: var(--red); }
+    .log-severity { font-size: 10px; font-weight: 700; text-transform: uppercase; }
+    .log-detail { color: var(--text2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+    /* ─── Settings Grid ───────────────────────────── */
+    .settings-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .settings-section { background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; }
+    .settings-section-title { font-size: 14px; font-weight: 700; margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+    .setting-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .setting-row:last-child { border-bottom: none; }
+    .setting-info { flex: 1; }
+    .setting-name { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .setting-desc { font-size: 11px; color: var(--text3); }
+
+    /* ─── Activity Feed ───────────────────────────── */
+    .activity-feed { max-height: 350px; overflow-y: auto; }
+    .activity-item { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
+    .activity-item:last-child { border-bottom: none; }
+    .activity-icon { width: 36px; height: 36px; border-radius: 2px; display: flex; align-items: center; justify-content: center; font-size: 16px; flex-shrink: 0; }
+    .activity-icon.warn { background: rgba(253, 203, 110, 0.15); }
+    .activity-icon.timeout { background: rgba(253, 121, 168, 0.15); }
+    .activity-icon.kick { background: rgba(255, 107, 107, 0.15); }
+    .activity-icon.ban { background: rgba(255, 107, 107, 0.2); }
+    .activity-icon.info { background: rgba(108, 92, 231, 0.15); }
+    .activity-content { flex: 1; }
+    .activity-title { font-size: 13px; font-weight: 600; margin-bottom: 2px; }
+    .activity-desc { font-size: 12px; color: var(--text3); }
+    .activity-time { font-size: 11px; color: var(--text3); font-family: var(--mono); }
+
+    /* ─── Empty State ─────────────────────────────── */
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text3); }
+    .empty-state .icon { font-size: 48px; margin-bottom: 16px; opacity: 0.4; }
+    .empty-state h3 { font-size: 18px; margin-bottom: 8px; color: var(--text2); }
+    .empty-state p { font-size: 13px; }
+
+    /* ─── Toast ────────────────────────────────────── */
+    .toast-container { position: fixed; bottom: 20px; right: 20px; z-index: 2000; display: flex; flex-direction: column; gap: 8px; }
+    .toast { padding: 12px 20px; border-radius: var(--radius); font-size: 12px; font-weight: 600; font-family: var(--mono); letter-spacing: 0.5px; text-transform: uppercase; animation: slideIn 0.2s ease, slideOut 0.2s ease 2.7s forwards; box-shadow: var(--shadow-lg); max-width: 340px; border: 1px solid rgba(255,255,255,0.15); }
+    .toast.success { background: var(--green); color: white; }
+    .toast.error { background: var(--red); color: white; }
+    .toast.info { background: var(--accent); color: white; }
+
+    @keyframes slideIn { from { opacity: 0; transform: translateX(40px); } to { opacity: 1; transform: translateX(0); } }
+    @keyframes slideOut { from { opacity: 1; } to { opacity: 0; transform: translateY(10px); } }
+
+    /* ─── Chart ────────────────────────────────────── */
+    .chart-bar-container { display: flex; align-items: flex-end; gap: 6px; height: 120px; padding: 10px 0; }
+    .chart-bar { flex: 1; border-radius: 1px 1px 0 0; min-height: 4px; position: relative; transition: height 0.3s ease; }
+    .chart-bar .label { position: absolute; bottom: -20px; font-size: 9px; color: var(--text3); text-align: center; width: 100%; }
+
+    /* ─── Server pills ────────────────────────────── */
+    .server-pills { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 20px; }
+    .server-pill { display: flex; align-items: center; gap: 8px; padding: 6px 14px; background: var(--surface2); border: 1px solid var(--border); border-radius: var(--radius); font-size: 12px; font-weight: 600; color: var(--text2); font-family: var(--mono); }
+    .server-pill .server-icon { width: 20px; height: 20px; border-radius: 1px; background: var(--accent); display: flex; align-items: center; justify-content: center; font-size: 10px; color: white; font-weight: 700; }
+
+    .filter-bar { display: flex; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+    .filter-bar .select, .filter-bar .input { width: auto; min-width: 150px; }
+
+    /* ─── Rule edit inline ─────────────────────────── */
+    .rule-edit-area { margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--border); display: none; }
+    .rule-card.editing .rule-edit-area { display: block; }
+
+    /* ─── Responsive ──────────────────────────────── */
+    @media (max-width: 1000px) {
+      .stats-grid { grid-template-columns: repeat(2, 1fr); }
+      .settings-grid { grid-template-columns: 1fr; }
+      .rules-grid { grid-template-columns: 1fr; }
+    }
+
+    @media (max-width: 768px) {
+      .sidebar { width: 60px; min-width: 60px; }
+      .nav-item span:not(.icon):not(.badge) { display: none; }
+      .nav-item { padding: 12px 0; justify-content: center; }
+      .sidebar-section { display: none; }
+      .sidebar-bottom { padding: 8px; }
+      .bot-status-indicator .status-text { display: none; }
+      .btn-power { font-size: 0; padding: 10px; }
+      .btn-power::before { content: '⏻'; font-size: 16px; }
+      .main { padding: 16px; }
+      .page-title { font-size: 22px; }
+      .stats-grid { grid-template-columns: 1fr 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <!-- Neo-Memphis Decorations -->
+  <div class="memphis-dots"></div>
+  <div class="memphis-shape circle"></div>
+  <div class="memphis-shape triangle"></div>
+  <div class="memphis-shape cross"></div>
+  <div class="memphis-shape zigzag"></div>
+  <div class="memphis-shape square"></div>
+  <div class="memphis-shape line1"></div>
+  <div class="memphis-shape line2"></div>
+  <div class="memphis-shape diamond"></div>
+
+  <!-- ═══ LOGIN OVERLAY ═══ -->
+  <div class="login-overlay active" id="login-overlay">
+    <div class="login-box">
+      <div class="login-logo">C</div>
+      <div class="login-title">ColorGG</div>
+      <div class="login-subtitle">AI Moderation Dashboard</div>
+      <form onsubmit="handleLogin(event)">
+        <input type="password" class="login-input" id="login-password" placeholder="Enter dashboard password" autofocus autocomplete="current-password" />
+        <button type="submit" class="login-btn" id="login-btn">AUTHENTICATE</button>
+      </form>
+      <div class="login-error" id="login-error"></div>
+      <div class="login-footer">SECURED WITH BCRYPT + JWT · HTTPONLY COOKIES</div>
+    </div>
+  </div>
+
+  <!-- ═══ MAIN APP (hidden until auth) ═══ -->
+  <div id="app-container" style="display:none;">
+    <!-- Top Bar -->
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-logo">C</div>
+        <span class="topbar-title">ColorGG</span>
+      </div>
+      <div class="topbar-right">
+        <span class="topbar-status" id="topbar-connection">● Connected</span>
+        <button class="btn-logout" onclick="handleLogout()">Logout</button>
+      </div>
+    </div>
+
+    <div class="app">
+      <div class="app-inner">
+        <!-- Sidebar -->
+        <div class="sidebar">
+          <div class="sidebar-section">Dashboard</div>
+          <div class="nav-item active" data-page="overview">
+            <span class="icon">📊</span> Overview
+          </div>
+          <div class="nav-item" data-page="activity">
+            <span class="icon">⚡</span> Live Activity
+            <span class="badge" id="activity-badge" style="display:none;">0</span>
+          </div>
+
+          <div class="sidebar-section">Moderation</div>
+          <div class="nav-item" data-page="rules">
+            <span class="icon">📜</span> AI Rules
+          </div>
+          <div class="nav-item" data-page="logs">
+            <span class="icon">📋</span> Mod Logs
+          </div>
+
+          <div class="sidebar-section">System</div>
+          <div class="nav-item" data-page="settings">
+            <span class="icon">⚙️</span> Settings
+          </div>
+
+          <div class="sidebar-bottom">
+            <div class="bot-status-indicator">
+              <div class="status-dot offline" id="status-dot"></div>
+              <div class="status-text">
+                <strong id="status-label">Offline</strong>
+                <span id="status-sub">Not connected</span>
+              </div>
+            </div>
+            <button class="btn-power" id="power-btn" onclick="toggleBot()">
+              ⏻ Start Bot
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main">
+          <!-- ═══ OVERVIEW PAGE ═══ -->
+          <div class="page active" id="page-overview">
+            <h1 class="page-title">Overview</h1>
+            <p class="page-subtitle">AI moderation dashboard — real-time stats and analytics</p>
+
+            <div id="server-pills" class="server-pills"></div>
+
+            <div class="stats-grid">
+              <div class="stat-card purple">
+                <div class="stat-icon">💬</div>
+                <div class="stat-value" id="stat-messages">0</div>
+                <div class="stat-label">Messages Scanned</div>
+              </div>
+              <div class="stat-card green">
+                <div class="stat-icon">✅</div>
+                <div class="stat-value" id="stat-clean">0</div>
+                <div class="stat-label">Clean (24h)</div>
+              </div>
+              <div class="stat-card orange">
+                <div class="stat-icon">⚠️</div>
+                <div class="stat-value" id="stat-flagged">0</div>
+                <div class="stat-label">Flagged (24h)</div>
+              </div>
+              <div class="stat-card pink">
+                <div class="stat-icon">🔇</div>
+                <div class="stat-value" id="stat-timeouts">0</div>
+                <div class="stat-label">Timeouts (24h)</div>
+              </div>
+              <div class="stat-card red">
+                <div class="stat-icon">👢</div>
+                <div class="stat-value" id="stat-kicks">0</div>
+                <div class="stat-label">Kicks (24h)</div>
+              </div>
+              <div class="stat-card cyan">
+                <div class="stat-icon">🚨</div>
+                <div class="stat-value" id="stat-bans">0</div>
+                <div class="stat-label">Ban Requests (24h)</div>
+              </div>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span class="icon">📊</span> Actions by Type (24h)</div>
+                </div>
+                <div class="chart-bar-container" id="chart-actions"></div>
+              </div>
+
+              <div class="card">
+                <div class="card-header">
+                  <div class="card-title"><span class="icon">⚡</span> Recent Activity</div>
+                </div>
+                <div class="activity-feed" id="overview-feed"></div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ ACTIVITY PAGE ═══ -->
+          <div class="page" id="page-activity">
+            <h1 class="page-title">Live Activity</h1>
+            <p class="page-subtitle">Real-time moderation feed</p>
+
+            <div class="card">
+              <div class="card-header">
+                <div class="card-title"><span class="icon">⚡</span> Live Feed</div>
+                <button class="btn btn-sm" onclick="clearActivityFeed()">Clear</button>
+              </div>
+              <div class="activity-feed" id="live-feed" style="max-height: 600px;">
+                <div class="empty-state">
+                  <div class="icon">📡</div>
+                  <h3>Waiting for activity...</h3>
+                  <p>Events will appear here in real-time when the bot is running</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ RULES PAGE ═══ -->
+          <div class="page" id="page-rules">
+            <h1 class="page-title">AI Rules</h1>
+            <p class="page-subtitle">Configure what the AI moderator watches for and how it responds</p>
+
+            <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+              <button class="btn btn-primary" onclick="resetRules()">↻ Reset to Defaults</button>
+            </div>
+
+            <div class="rules-grid" id="rules-grid"></div>
+          </div>
+
+          <!-- ═══ LOGS PAGE ═══ -->
+          <div class="page" id="page-logs">
+            <h1 class="page-title">Moderation Logs</h1>
+            <p class="page-subtitle">Full history of all moderation actions and AI analyses</p>
+
+            <div class="filter-bar">
+              <select class="select" id="log-filter-type" onchange="refreshLogs()">
+                <option value="">All Types</option>
+                <option value="mod_action">Mod Actions</option>
+                <option value="ai_analysis">AI Analysis</option>
+                <option value="bot_event">Bot Events</option>
+                <option value="error">Errors</option>
+              </select>
+              <select class="select" id="log-filter-severity" onchange="refreshLogs()">
+                <option value="">All Severities</option>
+                <option value="low">Low</option>
+                <option value="medium">Medium</option>
+                <option value="high">High</option>
+                <option value="critical">Critical</option>
+              </select>
+              <button class="btn btn-sm" onclick="refreshLogs()">🔄 Refresh</button>
+              <button class="btn btn-sm btn-danger" onclick="clearLogs()">🗑 Clear</button>
+            </div>
+
+            <div class="card" style="padding: 0;">
+              <div class="log-container" id="log-container">
+                <div class="empty-state">
+                  <div class="icon">📋</div>
+                  <h3>No logs yet</h3>
+                  <p>Logs will appear here when the bot starts moderating</p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ SETTINGS PAGE ═══ -->
+          <div class="page" id="page-settings">
+            <h1 class="page-title">Settings</h1>
+            <p class="page-subtitle">Bot configuration and connection settings</p>
+
+            <div class="settings-grid">
+              <div class="settings-section">
+                <div class="settings-section-title">🔌 Connection</div>
+
+                <div class="input-group">
+                  <label class="input-label">Bot Token</label>
+                  <input type="password" class="input" id="setting-token" placeholder="Discord bot token" />
+                </div>
+
+                <div class="input-group">
+                  <label class="input-label">Pollinations API Key</label>
+                  <input type="text" class="input" id="setting-api-key" value="pk_74dZ9pYlU7ufjX7O" disabled />
+                </div>
+
+                <button class="btn btn-primary" onclick="saveConnectionSettings()">Save Connection</button>
+              </div>
+
+              <div class="settings-section">
+                <div class="settings-section-title">🤖 AI Behavior</div>
+
+                <div class="input-group">
+                  <label class="input-label">Moderation Style</label>
+                  <select class="select" id="setting-style">
+                    <option value="lenient">Lenient — very relaxed, only flags serious stuff</option>
+                    <option value="balanced" selected>Balanced — fair and reasonable</option>
+                    <option value="strict">Strict — low tolerance for violations</option>
+                  </select>
+                </div>
+
+                <div class="input-group">
+                  <label class="input-label">Warnings before action</label>
+                  <input type="number" class="input" id="setting-warnings" value="2" min="0" max="10" />
+                </div>
+
+                <div class="input-group">
+                  <label class="input-label">Ban request DM target</label>
+                  <input type="text" class="input" id="setting-ban-user" value="devloafyt" />
+                </div>
+
+                <button class="btn btn-primary" onclick="saveAISettings()">Save AI Settings</button>
+              </div>
+
+              <div class="settings-section">
+                <div class="settings-section-title">🔔 Notifications</div>
+
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <div class="setting-name">DM users on action</div>
+                    <div class="setting-desc">Send a DM to users when action is taken</div>
+                  </div>
+                  <label class="toggle">
+                    <input type="checkbox" id="setting-dm-on-action" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <div class="setting-name">Notify user in chat</div>
+                    <div class="setting-desc">Reply publicly in the channel</div>
+                  </div>
+                  <label class="toggle">
+                    <input type="checkbox" id="setting-notify-user" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <div class="setting-row">
+                  <div class="setting-info">
+                    <div class="setting-name">Log flagged only</div>
+                    <div class="setting-desc">Only log messages that were flagged</div>
+                  </div>
+                  <label class="toggle">
+                    <input type="checkbox" id="setting-log-flagged" checked />
+                    <span class="toggle-slider"></span>
+                  </label>
+                </div>
+
+                <button class="btn btn-primary" onclick="saveNotificationSettings()" style="margin-top:12px;">Save Notifications</button>
+              </div>
+
+              <div class="settings-section">
+                <div class="settings-section-title">🛡️ Advanced</div>
+
+                <div class="input-group">
+                  <label class="input-label">Ignored Channel IDs (comma-separated)</label>
+                  <input type="text" class="input" id="setting-ignored-channels" placeholder="123456789,987654321" />
+                </div>
+
+                <div class="input-group">
+                  <label class="input-label">Ignored Role IDs (comma-separated)</label>
+                  <input type="text" class="input" id="setting-ignored-roles" placeholder="123456789,987654321" />
+                </div>
+
+                <div class="input-group">
+                  <label class="input-label">Trusted Role IDs (comma-separated)</label>
+                  <input type="text" class="input" id="setting-trusted-roles" placeholder="123456789" />
+                </div>
+
+                <div style="display: flex; gap: 10px; margin-top: 12px;">
+                  <button class="btn btn-primary" onclick="saveAdvancedSettings()">Save Advanced</button>
+                  <button class="btn btn-danger" onclick="resetAllSettings()">Reset All</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast -->
+  <div class="toast-container" id="toast-container"></div>
+
+  <script src="renderer-web.js"></script>
+</body>
+</html>

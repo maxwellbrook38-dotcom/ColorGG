@@ -1,0 +1,97 @@
+{
+  "moderationRules": [
+    {
+      "id": "spam",
+      "name": "Spam Detection",
+      "enabled": true,
+      "severity": "medium",
+      "description": "Detect repetitive messages, excessive caps, or message flooding",
+      "action": "timeout",
+      "timeoutDuration": 300,
+      "aiPrompt": "Check if this message is spam - repetitive text, excessive caps (>70%), message flooding, or meaningless character spam. Be lenient with excited messages or normal emphasis."
+    },
+    {
+      "id": "toxicity",
+      "name": "Toxicity & Harassment",
+      "enabled": true,
+      "severity": "high",
+      "description": "Detect toxic behavior, harassment, personal attacks, and bullying",
+      "action": "timeout",
+      "timeoutDuration": 600,
+      "aiPrompt": "Check if this message contains harassment, personal attacks, bullying, or toxic behavior directed at other users. Friendly banter and sarcasm should NOT be flagged. Only flag genuinely harmful content."
+    },
+    {
+      "id": "slurs",
+      "name": "Slurs & Hate Speech",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Detect racial slurs, hate speech, and discriminatory language",
+      "action": "request_ban",
+      "timeoutDuration": 0,
+      "aiPrompt": "Check if this message contains racial slurs, hate speech, or discriminatory language targeting any group. This is the most serious violation."
+    },
+    {
+      "id": "nsfw",
+      "name": "NSFW Content",
+      "enabled": true,
+      "severity": "high",
+      "description": "Detect sexually explicit content, gore, or other NSFW material",
+      "action": "timeout",
+      "timeoutDuration": 1800,
+      "aiPrompt": "Check if this message contains sexually explicit content, references to gore, or other NSFW material. Mild innuendos or jokes should NOT be flagged unless they are very explicit."
+    },
+    {
+      "id": "threats",
+      "name": "Threats & Violence",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Detect threats of violence, doxxing, or real-world harm",
+      "action": "request_ban",
+      "timeoutDuration": 0,
+      "aiPrompt": "Check if this message contains genuine threats of violence, doxxing threats, or intent to cause real-world harm. Video game violence references and obvious jokes should NOT be flagged."
+    },
+    {
+      "id": "scam",
+      "name": "Scam & Phishing",
+      "enabled": true,
+      "severity": "high",
+      "description": "Detect scam links, phishing attempts, and suspicious URLs",
+      "action": "kick",
+      "timeoutDuration": 0,
+      "aiPrompt": "Check if this message contains scam links, phishing attempts, fake giveaways, or suspicious URLs designed to steal information. Normal link sharing should NOT be flagged."
+    },
+    {
+      "id": "selfpromo",
+      "name": "Excessive Self-Promotion",
+      "enabled": true,
+      "severity": "low",
+      "description": "Detect excessive self-promotion or advertising",
+      "action": "warn",
+      "timeoutDuration": 0,
+      "aiPrompt": "Check if this message is primarily self-promotion or advertising (YouTube links, Twitch streams, server invites). Occasional sharing is fine - only flag excessive or spammy promotion."
+    },
+    {
+      "id": "raids",
+      "name": "Raid Detection",
+      "enabled": true,
+      "severity": "critical",
+      "description": "Detect coordinated raids or mass join attacks",
+      "action": "request_ban",
+      "timeoutDuration": 0,
+      "aiPrompt": "Check if this message appears to be part of a coordinated raid - identical messages from new accounts, mass spam, or coordinated attacks on the server."
+    }
+  ],
+  "globalSettings": {
+    "aiModel": "openai",
+    "moderationStyle": "balanced",
+    "warningsBeforeAction": 2,
+    "logAllMessages": false,
+    "logFlaggedOnly": true,
+    "notifyUser": true,
+    "dmOnAction": true,
+    "banRequestUser": "devloafyt",
+    "ignoredChannels": [],
+    "ignoredRoles": [],
+    "trustedRoles": []
+  }
+}
